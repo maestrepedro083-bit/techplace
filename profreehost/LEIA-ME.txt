@@ -1,0 +1,39 @@
+TECH PLACE STORE NA PROFREEHOST
+
+Este pacote leva o painel em PHP, o banco com os dados no momento do
+download e os arquivos dos anexos disponíveis. A pasta htdocs contém a
+versão feita para PHP 8.2 ou superior com PDO MySQL. O banco do Sites
+foi convertido para MySQL. Os nomes e as senhas atuais das contas
+continuam funcionando depois que a instalação e o HTTPS estiverem ativos.
+Abra a nova loja e entre novamente para iniciar uma sessão no novo domínio.
+
+1. Na ProFreeHost, selecione PHP 8.2 ou uma versão posterior. Na
+   primeira instalação, crie um banco MySQL para a Tech Place Store.
+   Copie o servidor, o nome completo do banco, o usuário e a senha
+   disponíveis no painel da hospedagem.
+2. Abra o phpMyAdmin da hospedagem, selecione esse banco e clique em
+   Importar. Use o arquivo do botão Baixar SQL para importar em /exportar
+   ou extraia o ZIP no computador e escolha dados-da-loja.sql.
+3. Extraia o ZIP no seu computador e edite htdocs/_tecnologia/config.php. Informe
+   a origem HTTPS do novo site sem barra final, o servidor, o banco,
+   o usuário e a senha MySQL. O valor pepper já vem preparado para
+   validar as senhas da loja.
+4. Envie o conteúdo da pasta htdocs
+   para o htdocs da ProFreeHost, incluindo .htaccess e a pasta
+   _tecnologia. Use o gerenciador de arquivos ou FTP. Mantenha o ZIP
+   e dados-da-loja.sql fora da pasta servida pelo site.
+5. Use um domínio com certificado HTTPS válido. Abra o endereço e
+   confira login, estoque, vendas, ordens e preços. Compare com o
+   painel antigo antes de divulgar o endereço novo.
+
+Na ProFreeHost, o painel aceita anexos de até 8 MB por arquivo para
+respeitar o limite da hospedagem. Os backups antigos, quando presentes,
+ficam em historico-de-backups para guardar no seu computador. Para
+backups futuros, exporte o novo MySQL pelo phpMyAdmin e copie a pasta
+htdocs/_tecnologia/anexos quando houver arquivos.
+
+Para retomar uma importação interrompida, baixe o SQL atualizado e
+importe no mesmo banco da loja. O arquivo reaproveita as tabelas
+existentes e pula os registros idênticos. O MySQL indica conflitos
+quando há valores diferentes para a mesma chave. Mantenha o ZIP e
+o SQL em local privado porque eles contêm registros da loja.

@@ -1,0 +1,10 @@
+dist/
+.preview/
+node_modules/
+
+# Configurações locais com credenciais
+.env
+.env.*
+*.env
+.dev.vars
+.dev.vars.*

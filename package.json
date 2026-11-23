@@ -1,0 +1,9 @@
+{
+  "name": "loja-em-ordem",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/preview.mjs",
+    "build": "node scripts/build.mjs"
+  }
+}
