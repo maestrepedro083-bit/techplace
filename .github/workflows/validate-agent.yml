@@ -1,0 +1,20 @@
+name: Validar agente (sem publicar)
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feature/central-notificacoes-seguras]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/universal-agent.test.mjs
+      - run: npm run build
+      - run: node --check src/app.js && node --check src/universal-agent.js
