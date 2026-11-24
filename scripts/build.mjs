@@ -5,6 +5,7 @@ const load = (name) => readFile(new URL('../' + name, import.meta.url), 'utf8');
 const worker = await load('src/worker.js');
 const resources = [
   ['/', 'index.html', 'text/html'], ['/style.css', 'style.css', 'text/css'], ['/app.js', 'app.js', 'text/javascript'],
+  ['/universal-agent.js', 'universal-agent.js', 'text/javascript'],
   ['/assistant.js', 'assistant.js', 'text/javascript'], ['/films.js', 'films.js', 'text/javascript'],
   ['/film-catalog.json', 'film-catalog.json', 'application/json'], ['/knowledge.js', 'knowledge.js', 'text/javascript'], ['/sales.js', 'sales.js', 'text/javascript'],
   ['/session.js', 'session.js', 'text/javascript'], ['/parts-pricing.js', 'parts-pricing.js', 'text/javascript'], ['/parts-catalog.json', 'parts-catalog.json', 'application/json'],

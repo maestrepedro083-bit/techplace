@@ -4,6 +4,7 @@ import { buildFilmIndex, compatibleFilmGroups, filmModelKey, filmTypes, fold, lo
 import { assistantExamples, classifyShopRequest, extractCashInput, interpretRequest, monthPeriod, searchShopRecords } from '/assistant.js';
 import { createPartsPricing } from '/parts-pricing.js';
 import { startSession } from '/session.js';
+import { createUniversalAgent } from '/universal-agent.js';
 
 const paths = {
   trash: '<path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/>',
@@ -49,7 +50,7 @@ const monthStart = today.slice(0, 7) + '-01';
 const [year, month] = today.split('-').map(Number);
 const monthEnd = today.slice(0, 7) + '-' + new Date(Date.UTC(year, month, 0)).getUTCDate();
 const monthName = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', month: 'long', year: 'numeric' }).format(new Date());
-const labels = { inicio: 'Início', estoque: 'Estoque', vendas: 'Vendas', caixa: 'Fluxo de caixa', servicos: 'Ordens de serviço', precos: 'Preços de peças', peliculas: 'Películas', conhecimento: 'Conhecimento', assistente: 'Assistente' };
+const labels = { inicio: 'Início', estoque: 'Estoque', vendas: 'Vendas', caixa: 'Fluxo de caixa', servicos: 'Ordens de serviço', precos: 'Preços de peças', peliculas: 'Películas', conhecimento: 'Conhecimento', assistente: 'Assistente', agente: 'Agente Universal' };
 const types = { in: 'Entrada', out: 'Saída' };
 const payments = ['Pix', 'Dinheiro', 'Cartão de débito', 'Cartão de crédito', 'Transferência', 'Boleto', 'Outro'];
 const units = ['un', 'cx', 'pct', 'par', 'kg', 'L', 'm'];
@@ -71,6 +72,7 @@ const primaryNav = document.querySelector('#primary-nav');
 const syncStatus = document.querySelector('#sync-status');
 let partsPricing;
 let signedIn = false;
+const universalAgent = createUniversalAgent({ request, notify });
 
 function setMobileMenu(open) {
   mobileMenu.setAttribute('aria-expanded', String(open));
@@ -294,6 +296,12 @@ function render({ loading = false, live = false } = {}) {
   for (const link of document.querySelectorAll('[data-page]')) {
     if (link.dataset.page === state.page) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
+  }
+  if (state.page === 'agente') {
+    const agent = universalAgent.mount();
+    if (content.firstElementChild !== agent) content.replaceChildren(agent);
+    content.setAttribute('aria-busy', 'false');
+    return;
   }
   if (state.page === 'precos') {
     partsPricing ??= createPartsPricing({ amountField, cents, displayDay, esc, fold, money, notify, number, options, pageHead, request });
@@ -2001,6 +2009,7 @@ document.querySelector('#refresh').addEventListener('click', () => {
 });
 void startSession({ request, notify, openStore() {
   signedIn = true;
+  universalAgent.start();
   window.addEventListener('hashchange', route);
   document.addEventListener('visibilitychange', syncPanel);
   window.addEventListener('online', syncPanel);
