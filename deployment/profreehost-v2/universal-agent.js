@@ -130,7 +130,12 @@ function createFinanceTools({request, node, btn, link}){
     if(answer)root.append(node('p',answer,'notice'));
     if(!config){root.append(btn(loading?'Consultando…':'Verificar acesso às integrações',()=>void load()));return;}
     if(!config.owner){
-      root.append(node('p',config.setupRequired?'O servidor exige a autorização inicial do titular por ID da conta. Configure agent-owner.php na área privada da hospedagem conforme o guia.':'Apenas o titular autorizado pode acessar credenciais e extratos.','subtitle'),btn('Verificar novamente',()=>void load()));return;
+      if(config.claimAvailable){
+        root.append(node('p','Ative somente na sua conta de titular. Use o código único entregue junto com o pacote de instalação. Depois de ativado, nenhum outro login poderá gerenciar estas integrações.','subtitle'));
+        const form=node('form',undefined,'agent-form');input(form,'Código único de ativação','code','password');
+        submit(form,'Ativar minha conta como titular',async values=>{config=await post({action:'claim',code:values.code});answer='Titular autorizado. Agora você pode configurar suas conexões.';});root.append(form);
+      }else root.append(node('p',config.setupRequired?'Ativação inicial indisponível. Instale o arquivo privado de ativação do pacote ou configure o titular conforme o guia.':'Apenas o titular autorizado pode acessar credenciais e extratos.','subtitle'));
+      root.append(btn('Verificar novamente',()=>void load()));return;
     }
     for(const provider of ['stone','infinite']){
       const info=config[provider],isStone=provider==='stone',section=node('div',undefined,'agent-connector');

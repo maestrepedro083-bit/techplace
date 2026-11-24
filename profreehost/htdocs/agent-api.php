@@ -86,7 +86,32 @@ try{
     $ownerId=is_file($ownerFile)?require $ownerFile:null;
     $method=$_SERVER['REQUEST_METHOD']??'GET';
     if(!is_string($ownerId)||!hash_equals($ownerId,(string)$account['id'])){
-        if($method==='GET'){resposta(['owner'=>false,'setupRequired'=>!is_string($ownerId)]);return;}
+        $claimPath=protegido('agent-owner-claim.php');
+        $claimAvailable=!file_exists($ownerFile)&&is_file($claimPath);
+        if($method==='GET'){resposta(['owner'=>false,'setupRequired'=>!is_string($ownerId),'claimAvailable'=>$claimAvailable]);return;}
+        if($method==='POST'&&$claimAvailable){
+            $claim=payload($config,1024);
+            if(($claim['action']??'')!=='claim')throw new Entrada('Somente o titular autorizado pode configurar provedores.',403);
+            $secret=agValue($claim['code']??null,'o código de ativação',128);
+            $digest=require $claimPath;
+            if(!is_string($digest)||strlen($secret)<24||!hash_equals($digest,hash('sha256',$secret)))throw new Entrada('Código de ativação inválido.',403);
+            $claimLock=fopen(protegido('agent-connections.lock'),'c');
+            if(!$claimLock||!flock($claimLock,LOCK_EX))throw new Entrada('Ativação temporariamente ocupada.',503);
+            try{
+                if(file_exists($ownerFile)||!is_file($claimPath))throw new Entrada('Titular já autorizado.',409);
+                $current=require $claimPath;
+                if(!is_string($current)||!hash_equals($current,hash('sha256',$secret)))throw new Entrada('Código inválido.',403);
+                $tmp=tempnam(__DIR__.'/_tecnologia','agent-owner-');
+                if($tmp===false)throw new Entrada('Ativação indisponível.',503);
+                try{
+                    $contents='<?php return '.var_export((string)$account['id'],true).';';
+                    if(!chmod($tmp,0600)||file_put_contents($tmp,$contents,LOCK_EX)!==strlen($contents)||!rename($tmp,$ownerFile))throw new Entrada('Não foi possível ativar o titular.',503);
+                }finally{if(is_file($tmp))unlink($tmp);}
+                // Even if deletion fails, ownerFile now exists, permanently disabling this claim.
+                @unlink($claimPath);
+                resposta(agStatus(agLoad($config)));return;
+            }finally{flock($claimLock,LOCK_UN);fclose($claimLock);}
+        }
         throw new Entrada('Somente o titular autorizado pode configurar e consultar provedores.',403);
     }
     if($method==='GET'){resposta(agStatus(agLoad($config)));return;}

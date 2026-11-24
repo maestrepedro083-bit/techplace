@@ -5,6 +5,9 @@ A atualização acrescenta comandos de consulta (texto e voz quando o navegador 
 Faça backup dos arquivos anteriores. Publique somente universal-agent.js, style.css e agent-api.php na raiz htdocs. Não substituir API original, banco, .htaccess ou configurações. O módulo usa a sessão existente e requer PHP 8.2, PDO, OpenSSL, cURL e SimpleXML. A integração depende de saída HTTPS permitida pela hospedagem.
 
 ## Titular
+Se o pacote de instalação for personalizado com `_tecnologia/agent-owner-claim.php`, o titular poderá ativar seu login usando o código de ativação único fornecido separadamente. O arquivo privado contém apenas o hash SHA-256 do código; a ativação exige sessão autenticada e origem HTTPS válida, grava o ID dessa conta como titular e invalida a ativação. O código nunca deve entrar no GitHub. Não reative nem substitua um titular já configurado.
+
+Alternativa manual:
 A autenticação atual permite cadastros de contas; estar logado não comprova propriedade. Por isso o servidor exige uma autorização inicial feita pelo titular na hospedagem. Identifique o ID EXATO da sua conta já existente consultando APENAS id e name na tabela staff_accounts pelo phpMyAdmin (não exiba hashes, senhas ou tokens). Crie htdocs/_tecnologia/agent-owner.php com o conteúdo de exemplo abaixo, substituindo o marcador por esse ID. Confirme que o .htaccess da raiz bloqueia acesso web à pasta _tecnologia. Nunca coloque o ID real ou credenciais no GitHub.
 ```php
 <?php
