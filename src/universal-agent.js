@@ -4,7 +4,11 @@ function agentMonth(now=new Date()){
   return {start:prefix+'-01',end:prefix+'-'+String(new Date(Date.UTC(Number(p.year),Number(p.month),0)).getUTCDate()).padStart(2,'0')};
 }
 
-function agentCents(value){return Number.isSafeInteger(value)&&value>=0?value:0;}
+function agentCents(value){
+  const cents=typeof value==='string'&&/^\d+$/.test(value)?Number(value):value;
+  if(!Number.isSafeInteger(cents)||cents<0)throw Error('Valor monetário inválido na resposta da loja.');
+  return cents;
+}
 
 function buildAgentSnapshot(shop,salesData,now=new Date()){
   if(!Array.isArray(shop?.products)||!Array.isArray(shop?.orders)||!Array.isArray(shop?.cash)||!Array.isArray(salesData?.sales))throw Error('Dados inválidos da loja.');
