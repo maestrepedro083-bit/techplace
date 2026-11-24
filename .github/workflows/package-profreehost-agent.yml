@@ -1,0 +1,28 @@
+name: Pacote de atualização ProFreeHost
+on:
+  push:
+    branches: [deploy/agente-profreehost]
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/universal-agent.test.mjs
+      - run: npm run build
+      - run: node --check deployment/profreehost/app.js && node --check deployment/profreehost/universal-agent.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: techplace-agente-atualizacao
+          path: |
+            deployment/profreehost/index.html
+            deployment/profreehost/app.js
+            deployment/profreehost/style.css
+            deployment/profreehost/universal-agent.js
+          if-no-files-found: error
+          retention-days: 14
