@@ -1,0 +1,27 @@
+name: Testar e empacotar agente v2
+on:
+  push:
+    branches: [feature/agente-v2]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/universal-agent.test.mjs
+      - run: node --check src/universal-agent.js
+      - run: php -l profreehost/htdocs/agent-api.php
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: techplace-agente-v2
+          path: deployment/profreehost-v2/*
+          if-no-files-found: error
+          retention-days: 14

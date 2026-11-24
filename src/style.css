@@ -547,3 +547,5 @@ dialog.wide { width: min(94vw, 810px); }
 
 /* Central do agente universal */
 .agent-panels{display:grid;gap:16px;margin-top:20px}.agent-panel{padding:20px;min-width:0}.agent-panel .actions{margin-top:14px}.agent-line,.agent-event{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:14px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.agent-line:last-child,.agent-event:last-child{border-bottom:0}.agent-line span,.agent-event small{color:var(--muted);font-size:.86rem}.agent-event .subtitle{margin:3px 0}.agent-event>strong{white-space:nowrap}@media(max-width:560px){.agent-line{flex-direction:column;gap:4px}.agent-event{gap:8px}}
+
+.agent-form{display:grid;gap:10px;margin:12px 0 16px}.agent-form label{display:grid;gap:6px;font-weight:650}.agent-form input,.agent-form textarea{width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit}.agent-form button{justify-self:start}.agent-connector{padding:14px 0;border-top:1px solid var(--line)}.agent-connector h3{margin:6px 0}.agent-connector .btn{margin:4px 6px 4px 0}.agent-panel .notice{white-space:pre-wrap;overflow-wrap:anywhere}

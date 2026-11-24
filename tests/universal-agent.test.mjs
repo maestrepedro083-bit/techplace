@@ -24,3 +24,17 @@ test('valores numéricos retornados como texto pelo MySQL',()=>{
  assert.equal(result.metrics.cashBalance,8000);
 });
 test('valor incorreto gera erro em vez de saldo falso',()=>assert.throws(()=>buildAgentSnapshot(shop,{sales:[{...sales.sales[0],amount:'inválido'}]},now)));
+
+import {agentIntent,commandRange,executeAgentCommand} from '../src/universal-agent.js';
+test('roteamento de comandos e datas no Brasil',()=>{
+ assert.equal(agentIntent('quanto vendi hoje?'),'sales');
+ assert.equal(agentIntent('gravação amanhã na Iris'),'iris');
+ assert.equal(agentIntent('estornar venda'),'draft');
+ assert.deepEqual(commandRange('ontem',new Date('2026-11-24T02:00:00Z')),{start:'2026-11-22',end:'2026-11-22'});
+});
+test('consulta financeira não envia gravação ou alteração ao servidor',async()=>{
+ const urls=[];const req=async u=>{urls.push(u);return u.startsWith('/api/vendas')?{sales:[{amount:20000,cost:8000},{amount:10000,cost:1000,voided_at:'x'}]}:{cash:[],orders:[],products:[]};};
+ const result=await executeAgentCommand('quanto vendi hoje',req);
+ assert.match(result,/200,00/);assert.match(result,/120,00/);assert.ok(urls.every(u=>u.startsWith('/api/')));
+ const old=urls.length;await executeAgentCommand('apagar venda',req);assert.equal(urls.length,old);
+});
