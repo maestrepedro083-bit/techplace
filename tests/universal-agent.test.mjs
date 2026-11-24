@@ -17,3 +17,10 @@ test('soma vendas ativas e caixa sem duplicar entradas vinculadas',()=>{
 });
 test('calendário brasileiro na virada UTC',()=>assert.deepEqual(agentMonth(new Date('2026-03-01T01:00:00Z')),{start:'2026-02-01',end:'2026-02-28'}));
 test('resposta inválida não gera eventos fictícios',()=>assert.throws(()=>buildAgentSnapshot({},sales,now)));
+
+test('valores numéricos retornados como texto pelo MySQL',()=>{
+ const result=buildAgentSnapshot({...shop,cash:shop.cash.map(c=>({...c,amount:String(c.amount)}))},{sales:sales.sales.map(s=>({...s,amount:String(s.amount)}))},now);
+ assert.equal(result.metrics.salesAmount,9000);
+ assert.equal(result.metrics.cashBalance,8000);
+});
+test('valor incorreto gera erro em vez de saldo falso',()=>assert.throws(()=>buildAgentSnapshot(shop,{sales:[{...sales.sales[0],amount:'inválido'}]},now)));
