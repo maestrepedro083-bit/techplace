@@ -127,16 +127,17 @@ function waMessage(PDO $db, array $cfg, string $message): array {
     return $row;
 }
 
-function waSend(PDO $db, array $cfg, array $data, string $actor): array {
+function waSend(PDO $db, array $cfg, array $data, string $actor, bool $confirmIntake = false): array {
+    if ($confirmIntake) $data=['kind'=>'intake','id'=>$data['id']??null];
     $connection=waCloud($cfg,['action'=>'status']);
     if (($connection['status']??null)!=='connected') throw new Entrada('Conecte o WhatsApp antes de enviar.',409);
     $mode=opcao($connection['mode']??null,['test','store'],'Modo da conexão inválido.');
     $stamp=timestamp();
-    [$message,$draft,$new]=transacao($db,function() use ($db,$cfg,$data,$actor,$mode,$stamp,$connection) {
+    [$message,$draft,$new]=transacao($db,function() use ($db,$cfg,$data,$actor,$mode,$stamp,$connection,$confirmIntake) {
         unico($db,'SELECT id FROM tp_wa_lock WHERE id=1 FOR UPDATE');
         $draft=waDraft($db,$data,$mode);
         $signature=$data['signature']??'';
-        if (!is_string($signature) || !hash_equals(waPreviewSignature($draft,$mode.':'.$connection['connection'],$actor,$cfg['token']),$signature)) {
+        if (!$confirmIntake && (!is_string($signature) || !hash_equals(waPreviewSignature($draft,$mode.':'.$connection['connection'],$actor,$cfg['token']),$signature))) {
             throw new Entrada('A mensagem ou a conexão mudou. Revise a mensagem novamente.',409);
         }
         $old=unico($db,'SELECT id FROM tp_wa_messages WHERE event_key=?',[$draft['event']]);

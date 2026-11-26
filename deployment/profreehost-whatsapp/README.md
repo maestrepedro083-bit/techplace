@@ -45,4 +45,4 @@ Use `--preparar-conexao` no script para instalar a revisão incremental sobre os
 
 No modo incremental, abra **WhatsApp → Configurar nuvem** com a conta titular do Agente Universal. Gere as duas chaves e configure-as apenas no serviço de nuvem. Depois de publicar o serviço, informe seu endereço HTTPS público e o token no painel e clique **Testar e salvar conector**. A credencial é armazenada com criptografia na hospedagem, e a configuração só é gravada após contato autenticado com o serviço. Os arquivos de configuração manuais continuam compatíveis.
 
-Nas ordens abertas, **Em preparo** inclui a via do cliente em PDF. Com o conector integrado, a mensagem e o PDF são submetidos juntos após confirmação. Antes de vincular o WhatsApp, o painel permite baixar ou compartilhar o PDF pelo próprio aparelho. A impressão A4 continua disponível.
+Nas ordens abertas, **Em preparo** inclui a via do cliente em PDF. Com o conector integrado, a mensagem e o PDF são submetidos juntos no clique em Em preparo. Antes de vincular o WhatsApp, o painel permite baixar ou compartilhar o PDF pelo próprio aparelho. A impressão A4 continua disponível.

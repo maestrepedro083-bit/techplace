@@ -7,4 +7,4 @@ const response = await fetch('/techplace-whatsapp.php', {
   signal: AbortSignal.timeout(3000),
 }).then(res => res.ok ? res.json() : null).catch(() => null);
 
-await import(response?.ready === true ? '/app-whatsapp.js?v=2' : '/app-painel-wa.js?v=3');
+await import(response?.ready === true ? '/app-whatsapp.js?v=4' : '/app-painel-wa.js?v=4');

@@ -82,6 +82,19 @@ function showReceipt(host, message, detail = false) {
   }
 }
 
+export async function sendIntakeOrder(id, status) {
+  status.textContent = 'Enviando o aviso e a OS em PDF…';
+  const message = await call('send-intake',{id});
+  status.textContent = messageStates[message.state] ?? 'Envio recebido. Consulte o histórico no menu WhatsApp.';
+}
+
+function whatsappIntakeAction(id) {
+  const block = el('div',null,'tp-message');
+  const status = live('');
+  block.append(button('Em preparo · Enviar OS em PDF',()=>sendIntakeOrder(id,status),status,'btn primary'),status);
+  return block;
+}
+
 export function whatsappAction(label, kind, id, reward) {
   const root = el('div',null,'tp-message');
   const result = live();
@@ -221,7 +234,7 @@ export function whatsappOrder(root,id) {
     }
     if (order.stage && order.linked) {
       root.append(order.preparing
-        ? whatsappAction('Em preparo · Enviar OS em PDF','intake',id)
+        ? whatsappIntakeAction(id)
         : whatsappAction('Enviar status pelo WhatsApp','status',id));
     }
   }

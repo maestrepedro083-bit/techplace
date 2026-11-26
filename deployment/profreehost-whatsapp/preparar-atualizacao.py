@@ -19,25 +19,40 @@ def substitute(source, pattern, after):
 
 
 def whatsapp_page(source):
-    source = "import { withWhatsAppPage } from '/techplace-whatsapp.js?v=2';\n" + source
+    source = "import { withWhatsAppPage } from '/techplace-whatsapp.js?v=4';\n" + source
     source = replace(source, "const labels = { inicio:", "const labels = { whatsapp: 'WhatsApp', inicio:")
     return replace(source, "const tpPlus = createTechPlacePlus({ request, refreshStore: () => load({live:true}) });",
                    "const tpPlus = withWhatsAppPage(createTechPlacePlus({ request, refreshStore: () => load({live:true}) }));")
 
 
 def fallback_app(source):
-    source = "import { createIntakeFile } from '/techplace-order-pdf.js?v=1';\n" + whatsapp_page(source)
-    source = replace(source, "description:'Aparelho recebido; preparação e avaliação inicial.'", "description:'Aviso de preparo e ordem de serviço em PDF.'")
-    source = replace(source, 'const disabled=!phone||canceled||', "const disabled=(!phone&&key!=='prep')||canceled||(key==='prep'&&order.status!=='open')||")
-    source = replace(source, "if(!notice||order.status==='canceled'||", "if(!notice||order.status==='canceled'||(key==='prep'&&order.status!=='open')||")
-    source = replace(source, '  const mismatch=notice.status!==order.status;', "  if(key==='prep'){\n    try{\n      const {problem,technician}=orderMetadata(order.notes);\n      pdf=createIntakeFile({name:order.customer,phone:order.phone},order,problem,technician);\n    }catch(e){notify('Não foi possível gerar o PDF da ordem de serviço.');return;}\n  }\n  const mismatch=notice.status!==order.status;")
-    source = replace(source, '<small>Termo de garantia em PDF · A4</small>', "<small>'+(key==='prep'?'Ordem de serviço':'Termo de garantia')+' em PDF · A4</small>")
-    source = replace(source, "if(!phone){notify('Cadastre um telefone brasileiro válido na ordem.');return;}", "if(!phone&&key!=='prep'){notify('Cadastre um telefone brasileiro válido na ordem.');return;}")
-    source = replace(source, "+'</strong><small>+'+esc(phone)+'</small></div>'", "+'</strong><small>'+esc(phone?'+'+phone:'WhatsApp não informado na OS')+'</small></div>'")
-    source = replace(source, '\',\'<a class="btn primary tp-wa-send" target="_blank" rel="noopener noreferrer" href="https://wa.me/\'+phone+\'?text=\'+esc(encodeURIComponent(text))+\'">\'+icon(\'phone\')+\' Abrir WhatsApp</a>\'+button', '\',(phone?\'<a class="btn primary tp-wa-send" target="_blank" rel="noopener noreferrer" href="https://wa.me/\'+phone+\'?text=\'+esc(encodeURIComponent(text))+\'">\'+icon(\'phone\')+\' Abrir WhatsApp</a>\':\'\')+button')
-    source = replace(source, '<p class="subtitle">Use o conector local para enviar diretamente ou confirme no WhatsApp pela opção manual.</p>', '\'+(key===\'prep\'?\'<p class="subtitle">Compartilhe o PDF ou baixe e anexe na conversa do cliente.</p>\':\'<p class="subtitle">Use o conector local para enviar diretamente ou confirme no WhatsApp pela opção manual.</p>\')+\'')
-    source = replace(source, 'manual.before(local);', "if(key!=='prep')manual.before(local);")
-    source = replace(source, 'local.after(result);', "if(key!=='prep')local.after(result);")
+    source = "import { createIntakeFile } from '/techplace-order-pdf.js?v=1';\nimport { sendIntakeOrder } from '/techplace-whatsapp.js?v=4';\n" + whatsapp_page(source)
+    source = replace(source, "label:'Em preparo',status:'open',description:'Aparelho recebido; preparação e avaliação inicial.'",
+                     "label:'Em preparo · Enviar OS em PDF',status:'open',description:'Envia o aviso e a ordem de serviço em PDF no mesmo clique.'")
+    source = replace(source, 'const disabled=!phone||canceled||',
+                     "const disabled=(!phone&&key!=='prep')||canceled||(key==='prep'&&order.status!=='open')||")
+    source = replace(source, """+items+'</div><small class="tp-os-notice-hint">' """.rstrip(),
+                     """+items+'</div>'+(order.status==='open'?button('Baixar OS em PDF',{action:'service-wa-download',id:order.id}):'')+'<p class="tp-os-wa-intake-result" role="status"></p><small class="tp-os-notice-hint">'""")
+    source = replace(source, '  const phone=orderNoticePhone(order.phone),notice=orderNoticeTypes[key];', """  if(key==='prep'){
+    const panel=dialog.querySelector('.tp-os-notices');
+    const status=panel?.querySelector('.tp-os-wa-intake-result');
+    const send=panel?.querySelector('[data-action="service-wa-prep"]');
+    if(!status||!send||send.disabled)return;
+    send.disabled=true;
+    try{await sendIntakeOrder(order.id,status);}
+    catch(error){status.textContent=error.message;}
+    finally{send.disabled=false;}
+    return;
+  }
+  const phone=orderNoticePhone(order.phone),notice=orderNoticeTypes[key];""")
+    source = replace(source, "    case 'service-wa-prep': if(order)orderWhatsApp(order,'prep');break;", """    case 'service-wa-prep': if(order)void orderWhatsApp(order,'prep');break;
+    case 'service-wa-download':
+      if(order?.status==='open'){
+        const {problem,technician}=orderMetadata(order.notes);
+        try{downloadWarrantyFile(createIntakeFile({name:order.customer,phone:order.phone},order,problem,technician));}
+        catch{notify('Não foi possível gerar o PDF da ordem de serviço.');}
+      }
+      break;""")
     return source
 
 
@@ -123,7 +138,7 @@ def main():
     shutil.copytree(Path(__file__).with_name('htdocs'), args.output)
     bootstrap = args.output / 'techplace-wa-bootstrap.js'
     if args.preparar_conexao:
-        files['index.html'] = files['index.html'].replace('/app.js?v=tp-wa-cloud-1', '/techplace-wa-bootstrap.js?v=3')
+        files['index.html'] = files['index.html'].replace('/app.js?v=tp-wa-cloud-1', '/techplace-wa-bootstrap.js?v=4')
         files['app-painel-wa.js'] = fallback_app((args.current / 'app.js').read_text(encoding='utf8'))
         files['techplace-order-pdf.js'] = Path(__file__).with_name('cloud').joinpath('warranty-pdf.mjs').read_text(encoding='utf8')
         files['app-whatsapp.js'] = files.pop('app.js').replace('/techplace-plus.js?v=tp-wa-cloud-1', '/techplace-plus-whatsapp.js?v=1').replace('/crm-api.php', '/crm-api-whatsapp.php')

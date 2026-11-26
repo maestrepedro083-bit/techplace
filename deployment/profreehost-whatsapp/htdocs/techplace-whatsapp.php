@@ -43,7 +43,7 @@ try {
     if ($cfg===null) {
         if ($action==='status') { resposta(['status'=>'setup_required','admin'=>$owner,'owner_registered'=>is_string($ownerId)]); return; }
         if ($action==='availability') { resposta(['ready'=>false]); return; }
-        throw new Entrada('O conector WhatsApp ainda não foi configurado na hospedagem.',503);
+        throw new Entrada('O WhatsApp ainda não está vinculado. Abra WhatsApp no menu para configurar a conexão.',503);
     }
     $admin=in_array($actor,$cfg['admins']??[],true);
     if (!$admin && !in_array($actor,$cfg['senders']??[],true)) throw new Entrada('Sua conta não está autorizada a usar o WhatsApp TechPlace.',403);
@@ -124,6 +124,7 @@ try {
             'signature'=>waPreviewSignature($draft,$mode.':'.$connection['connection'],$actor,$cfg['token'])]);
         return;
     }
+    if ($action==='send-intake') { resposta(waSend($db,$cfg,$data,$actor,true)); return; }
     if ($action==='send') { resposta(waSend($db,$cfg,$data,$actor)); return; }
     if ($action==='receipt') { resposta(waMessage($db,$cfg,id($data['id']??null))); return; }
     if ($action==='history') {
