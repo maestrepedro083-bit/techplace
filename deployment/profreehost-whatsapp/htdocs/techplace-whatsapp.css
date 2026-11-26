@@ -1,0 +1,4 @@
+.tp-wa-connection { max-height: min(50dvh, 340px); overflow: auto; flex: none; }
+.tp-wa-connection summary { cursor: pointer; font-weight: 600; }
+.tp-wa-connection img { display: block; max-width: 100%; height: auto; }
+.tp-wa-connection .tp-wa-controls { display: flex; flex-wrap: wrap; gap: 8px; }
