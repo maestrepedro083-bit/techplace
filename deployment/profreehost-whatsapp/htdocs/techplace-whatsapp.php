@@ -20,17 +20,36 @@ try {
         WHERE s.token_hash=? AND s.expires_at>? AND a.disabled_at IS NULL',[hash('sha256',$session),timestamp()])['id']??null;
     if (!$actor) throw new Entrada('Sessão inválida.',401);
     $action=$data['action']??null;
-    if (!is_file(protegido('whatsapp-config.php'))) {
-        if ($action==='status') { resposta(['status'=>'setup_required','admin'=>false]); return; }
+    $ownerFile=protegido('agent-owner.php');
+    $ownerId=is_file($ownerFile)?require $ownerFile:null;
+    $owner=is_string($ownerId) && hash_equals($ownerId,$actor);
+    $cfg=waConfig($config);
+    if ($action==='configure') {
+        if (!$owner) throw new Entrada('Somente o titular da TechPlace pode configurar o conector.',403);
+        if ($cfg!==null) throw new Entrada('Já existe uma configuração para este conector.',409);
+        $url=rtrim(campo($data,'url','endereço HTTPS do conector',220,true),'/');
+        $token=campo($data,'token','token do conector',64,true);
+        if (!preg_match('#^https://(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63})$#iD',$url)
+            || !preg_match('/^[a-f0-9]{64}$/D',$token)) throw new Entrada('Informe um endereço HTTPS público e o token de 64 caracteres.',400);
+        $new=['url'=>$url,'token'=>$token,'admins'=>[$actor],'senders'=>[],'pin_public_host'=>true];
+        $remote=waCloud($new,['action'=>'status']);
+        if (!in_array($remote['status']??null,['disconnected','connecting','connected','pairing','pairing_error','error','disconnecting'],true)) {
+            throw new Entrada('O servidor informado não retornou um status válido do conector TechPlace.',502);
+        }
+        waInstall($db);
+        waSaveConfig($config,$new);
+        resposta(['ok'=>true]); return;
+    }
+    if ($cfg===null) {
+        if ($action==='status') { resposta(['status'=>'setup_required','admin'=>$owner,'owner_registered'=>is_string($ownerId)]); return; }
         if ($action==='availability') { resposta(['ready'=>false]); return; }
         throw new Entrada('O conector WhatsApp ainda não foi configurado na hospedagem.',503);
     }
-    $cfg=require protegido('whatsapp-config.php');
     $admin=in_array($actor,$cfg['admins']??[],true);
     if (!$admin && !in_array($actor,$cfg['senders']??[],true)) throw new Entrada('Sua conta não está autorizada a usar o WhatsApp TechPlace.',403);
     if ($action==='availability') {
         $ready=false;
-        try { waCloud($cfg,['action'=>'status']); $db->query('SELECT id FROM tp_wa_lock LIMIT 1'); $ready=true; }
+        try { $db->query('SELECT id FROM tp_wa_lock LIMIT 1'); $ready=true; }
         catch (Entrada|PDOException $e) {}
         resposta(['ready'=>$ready]); return;
     }
@@ -68,7 +87,7 @@ try {
             $order=waOrder($db,$order['id']);
         }
         resposta(['stage'=>$order['stage'],'label'=>waStages()[$order['stage']]??null,'version'=>$order['updated_at'],
-            'working'=>$order['status']==='working','admin'=>$admin,'linked'=>(bool)$order['client_id']]);
+            'preparing'=>$order['status']==='open','working'=>$order['status']==='working','admin'=>$admin,'linked'=>(bool)$order['client_id']]);
         return;
     }
     if ($action==='consent') {

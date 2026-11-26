@@ -66,3 +66,16 @@ test('builds the existing warranty PDF from the saved order and terms', async ()
   assert.ok(fields.includes('Troca de tela'));
   assert.ok(fields.includes('Cliente Exemplo'));
 });
+
+test('gera OS em preparo em PDF sem as observações internas', async () => {
+  const {createIntakeFile}=await import('./warranty-pdf.mjs');
+  const file=createIntakeFile({name:'Cliente teste',phone:''},{
+    number:3,created_at:'2026-11-26T02:01:00Z',title:'Troca de vidro',
+    amount:12000,notes:'INTERNAL_PRIVATE',
+  },'Trinca','Técnico');
+  assert.equal(file.name,'TechPlace-OS-0003.pdf');
+  const raw=Buffer.from(await file.arrayBuffer()).toString('latin1');
+  assert.ok(raw.startsWith('%PDF-1.4'));
+  assert.ok(raw.includes(Buffer.from('Em preparo').toString('hex')));
+  assert.ok(!raw.includes(Buffer.from('INTERNAL_PRIVATE').toString('hex')));
+});

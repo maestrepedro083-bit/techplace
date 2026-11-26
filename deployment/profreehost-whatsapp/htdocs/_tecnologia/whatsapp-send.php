@@ -10,6 +10,17 @@ function waCloud(array $cfg, array $data): array {
         throw new Entrada('Configure o serviço HTTPS do WhatsApp na hospedagem.',503);
     }
     $curl = curl_init(rtrim($url,'/').'/techplace');
+    if (!empty($cfg['pin_public_host'])) {
+        $host=parse_url($url,PHP_URL_HOST);
+        $addresses=is_string($host)?gethostbynamel($host):false;
+        $ip=false;
+        foreach ($addresses?:[] as $address) {
+            if (filter_var($address,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4|FILTER_FLAG_GLOBAL_RANGE)!==false) { $ip=$address; break; }
+        }
+        if ($ip===false) throw new Entrada('O servidor precisa ter um endereço público válido.',400);
+        curl_setopt($curl,CURLOPT_RESOLVE,[$host.':443:'.$ip]);
+        curl_setopt($curl,CURLOPT_PROXY,'');
+    }
     curl_setopt_array($curl, [
         CURLOPT_POST=>true, CURLOPT_POSTFIELDS=>json_encode($data,JSON_FLAGS), CURLOPT_RETURNTRANSFER=>true,
         CURLOPT_HTTPHEADER=>['Content-Type: application/json','Authorization: Bearer '.$secret],
@@ -26,9 +37,9 @@ function waCloud(array $cfg, array $data): array {
 
 function waDraft(PDO $db, array $data, string $mode): array {
     $today=waToday();
-    $kind=opcao($data['kind']??null,['status','warranty','benefit','discount','progress','birthday'],'Mensagem inválida.');
-    $order=null; $warranty=null; $file=null;
-    if ($kind==='status' || $kind==='warranty') {
+    $kind=opcao($data['kind']??null,['status','warranty','intake','benefit','discount','progress','birthday'],'Mensagem inválida.');
+    $order=null; $warranty=null; $intake=null; $file=null;
+    if (in_array($kind,['status','warranty','intake'],true)) {
         $order=waOrder($db,id($data['id']??null));
         if (!$order['client_id']) throw new Entrada('Vincule a ordem ao cadastro do cliente antes de enviar.',409);
     }
@@ -45,6 +56,17 @@ function waDraft(PDO $db, array $data, string $mode): array {
             if (!$order['stage']) throw new Entrada('Registre a etapa atual do aparelho antes de enviar.',409);
             $key=$order['id'].':'.$order['stage'];
             $body="$greeting A situação do seu aparelho na OS #".$order['number'].' é: '.waStages()[$order['stage']].'.';
+            break;
+        case 'intake':
+            if ($order['status']!=='open') throw new Entrada('A ordem precisa estar em preparo para enviar este documento.',409);
+            $key=$order['id'];
+            $body="$greeting Recebemos seu aparelho. A OS #".$order['number'].' está em preparo para avaliação. Segue a via da ordem de serviço em PDF.';
+            $notes=(string)$order['notes'];
+            $meta=str_starts_with($notes,'[TP-OS-1]')?json_decode(substr($notes,9),true):null;
+            $intake=['client'=>array_intersect_key($client,array_flip(['name','phone'])),
+                'order'=>array_intersect_key($order,array_flip(['number','title','created_at','due_day','amount'])),
+                'problem'=>is_string($meta[0]??null)?$meta[0]:'','technician'=>is_string($meta[1]??null)?$meta[1]:''];
+            $file='TechPlace-OS-'.str_pad((string)$order['number'],4,'0',STR_PAD_LEFT).'.pdf';
             break;
         case 'warranty':
             if ($order['status']!=='done' || !$order['warranty_start'] || !$order['warranty_days'] || !$order['warranty_terms']) {
@@ -81,7 +103,7 @@ function waDraft(PDO $db, array $data, string $mode): array {
     }
     $group=$kind==='discount'?'benefit':$kind;
     return ['event'=>hash('sha256',implode('|',[$mode,$client['id'],$group,$key])),'kind'=>$kind,'client'=>$client['id'],
-        'phone'=>$client['phone'],'body'=>$body,'warranty'=>$warranty,'file'=>$file];
+        'phone'=>$client['phone'],'body'=>$body,'warranty'=>$warranty,'intake'=>$intake,'file'=>$file];
 }
 
 function waPreviewSignature(array $draft, string $mode, string $actor, string $secret): string {
@@ -130,7 +152,7 @@ function waSend(PDO $db, array $cfg, array $data, string $actor): array {
     if ($new) {
         try {
             $result=waCloud($cfg,['action'=>'send','id'=>$message,'mode'=>$mode,'connection'=>$connection['connection'],
-                'phone'=>$draft['phone'],'text'=>$draft['body'],'warranty'=>$draft['warranty']]);
+                'phone'=>$draft['phone'],'text'=>$draft['body'],'warranty'=>$draft['warranty'],'intake'=>$draft['intake']]);
             if (($result['state']??null)==='failed') sql($db,"UPDATE tp_wa_messages SET state='failed',updated_at=? WHERE id=? AND state='requested'",[timestamp(),$message]);
         } catch (Entrada) {
             sql($db,"UPDATE tp_wa_messages SET state='uncertain',updated_at=? WHERE id=? AND state='requested'",[timestamp(),$message]);

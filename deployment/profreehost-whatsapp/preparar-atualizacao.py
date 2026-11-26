@@ -18,6 +18,29 @@ def substitute(source, pattern, after):
     return updated
 
 
+def whatsapp_page(source):
+    source = "import { withWhatsAppPage } from '/techplace-whatsapp.js?v=2';\n" + source
+    source = replace(source, "const labels = { inicio:", "const labels = { whatsapp: 'WhatsApp', inicio:")
+    return replace(source, "const tpPlus = createTechPlacePlus({ request, refreshStore: () => load({live:true}) });",
+                   "const tpPlus = withWhatsAppPage(createTechPlacePlus({ request, refreshStore: () => load({live:true}) }));")
+
+
+def fallback_app(source):
+    source = "import { createIntakeFile } from '/techplace-order-pdf.js?v=1';\n" + whatsapp_page(source)
+    source = replace(source, "description:'Aparelho recebido; preparação e avaliação inicial.'", "description:'Aviso de preparo e ordem de serviço em PDF.'")
+    source = replace(source, 'const disabled=!phone||canceled||', "const disabled=(!phone&&key!=='prep')||canceled||(key==='prep'&&order.status!=='open')||")
+    source = replace(source, "if(!notice||order.status==='canceled'||", "if(!notice||order.status==='canceled'||(key==='prep'&&order.status!=='open')||")
+    source = replace(source, '  const mismatch=notice.status!==order.status;', "  if(key==='prep'){\n    try{\n      const {problem,technician}=orderMetadata(order.notes);\n      pdf=createIntakeFile({name:order.customer,phone:order.phone},order,problem,technician);\n    }catch(e){notify('Não foi possível gerar o PDF da ordem de serviço.');return;}\n  }\n  const mismatch=notice.status!==order.status;")
+    source = replace(source, '<small>Termo de garantia em PDF · A4</small>', "<small>'+(key==='prep'?'Ordem de serviço':'Termo de garantia')+' em PDF · A4</small>")
+    source = replace(source, "if(!phone){notify('Cadastre um telefone brasileiro válido na ordem.');return;}", "if(!phone&&key!=='prep'){notify('Cadastre um telefone brasileiro válido na ordem.');return;}")
+    source = replace(source, "+'</strong><small>+'+esc(phone)+'</small></div>'", "+'</strong><small>'+esc(phone?'+'+phone:'WhatsApp não informado na OS')+'</small></div>'")
+    source = replace(source, '\',\'<a class="btn primary tp-wa-send" target="_blank" rel="noopener noreferrer" href="https://wa.me/\'+phone+\'?text=\'+esc(encodeURIComponent(text))+\'">\'+icon(\'phone\')+\' Abrir WhatsApp</a>\'+button', '\',(phone?\'<a class="btn primary tp-wa-send" target="_blank" rel="noopener noreferrer" href="https://wa.me/\'+phone+\'?text=\'+esc(encodeURIComponent(text))+\'">\'+icon(\'phone\')+\' Abrir WhatsApp</a>\':\'\')+button')
+    source = replace(source, '<p class="subtitle">Use o conector local para enviar diretamente ou confirme no WhatsApp pela opção manual.</p>', '\'+(key===\'prep\'?\'<p class="subtitle">Compartilhe o PDF ou baixe e anexe na conversa do cliente.</p>\':\'<p class="subtitle">Use o conector local para enviar diretamente ou confirme no WhatsApp pela opção manual.</p>\')+\'')
+    source = replace(source, 'manual.before(local);', "if(key!=='prep')manual.before(local);")
+    source = replace(source, 'local.after(result);', "if(key!=='prep')local.after(result);")
+    return source
+
+
 def app(source):
     source = substitute(source, r"^import \{sendLocalNotice\}[^\n]+",
                         "import { whatsappAction, whatsappOrder } from '/techplace-whatsapp.js';")
@@ -39,7 +62,7 @@ function orderWhatsApp(order) {
     source, count = re.subn(r"^    case 'service-wa-(prep|repair|ready)':[^\n]+\n", "", source, flags=re.MULTILINE)
     if count != 3:
         raise ValueError("Botões antigos de status não encontrados.")
-    return source
+    return whatsapp_page(source)
 
 
 def panels(source):
@@ -55,16 +78,14 @@ def panels(source):
                         """ r.append(whatsappClients(async id=>showClient(r,await crm('client',{id}))));});return r;}""")
     source = substitute(source, r"^    \{id:'whatsapp'[^\n]+", """    {id:'whatsapp',name:'WhatsApp',group:'Clientes',short:'WA',desc:'Envio autorizado de garantias, status e benefícios.',status:'Ver conexão',detail:'Vincule o WhatsApp da loja ou um número pessoal para teste.'},""")
     source = replace(source, "    if(item.kind==='financial')", "    if(item.id==='whatsapp'){const wa=whatsappConnection();details.append(wa);wa.open=true;}\n    else if(item.kind==='financial')")
-    source = replace(source, "p.append(quick,log,f);", "p.append(whatsappConnection(),quick,log,f);")
     return source
 
 
 def crm(source):
     source = replace(source, "require __DIR__.'/expenses.php';", "require __DIR__.'/expenses.php';\nrequire protegido('whatsapp-store.php');")
     return substitute(source, r"^   sql\(\$db,'UPDATE tp_crm_rules_v1 SET[^\n]+", """   $newRules=[$purchase,$service,crmText($p['purchase_reward']??'',160,true),crmText($p['service_reward']??'',160,true),crmText($p['birthday_reward']??'',160,true)];
-   $waConfig=protegido('whatsapp-config.php');
-   if (is_file($waConfig)) {
-       $allowed=require $waConfig;
+   $allowed=waConfig($config);
+   if ($allowed!==null) {
        if (!in_array($account['id'],$allowed['admins']??[],true)) throw new Entrada('Somente um administrador pode alterar as regras de fidelidade.',403);
        waInstall($db);
        transacao($db,function() use ($db,$newRules) {
@@ -91,7 +112,9 @@ def main():
                  for name, transform in [('app.js', app), ('techplace-plus.js', panels), ('crm-api.php', crm)]}
         index = (args.current / 'index.html').read_text(encoding='utf8')
         files['index.html'] = substitute(index, r'(?<=src=")/app\.js(?:\?[^"]*)?', '/app.js?v=tp-wa-cloud-1')
-        files['index.html'] = replace(files['index.html'], '</head>', '    <link rel="stylesheet" href="/techplace-whatsapp.css?v=1">\n</head>')
+        files['index.html'] = replace(files['index.html'], '</head>', '    <link rel="stylesheet" href="/techplace-whatsapp.css?v=2">\n</head>')
+        files['index.html'] = replace(files['index.html'], '<div class="tp-nav-group">RELACIONAMENTO</div>',
+            '<div class="tp-nav-group">RELACIONAMENTO</div>\n        <a href="#whatsapp" data-page="whatsapp"><span data-icon="phone"></span><span>WhatsApp</span></a>')
         files['app.js'] = substitute(files['app.js'], r"(?<=from ')/techplace-plus\.js(?:\?[^']*)?", '/techplace-plus.js?v=tp-wa-cloud-1')
     except (OSError, ValueError) as error:
         cli.error(f'Versão diferente da edição conhecida. Nenhum arquivo foi gravado. {error}')
@@ -100,9 +123,9 @@ def main():
     shutil.copytree(Path(__file__).with_name('htdocs'), args.output)
     bootstrap = args.output / 'techplace-wa-bootstrap.js'
     if args.preparar_conexao:
-        old_app = re.search(r'(?<=src=")/app\.js(?:\?[^"]*)?', index).group()
-        bootstrap.write_text(bootstrap.read_text(encoding='utf8').replace('/app.js?v=tp45-busca-fornecedor', old_app), encoding='utf8')
-        files['index.html'] = files['index.html'].replace('/app.js?v=tp-wa-cloud-1', '/techplace-wa-bootstrap.js?v=1')
+        files['index.html'] = files['index.html'].replace('/app.js?v=tp-wa-cloud-1', '/techplace-wa-bootstrap.js?v=3')
+        files['app-painel-wa.js'] = fallback_app((args.current / 'app.js').read_text(encoding='utf8'))
+        files['techplace-order-pdf.js'] = Path(__file__).with_name('cloud').joinpath('warranty-pdf.mjs').read_text(encoding='utf8')
         files['app-whatsapp.js'] = files.pop('app.js').replace('/techplace-plus.js?v=tp-wa-cloud-1', '/techplace-plus-whatsapp.js?v=1').replace('/crm-api.php', '/crm-api-whatsapp.php')
         files['techplace-plus-whatsapp.js'] = files.pop('techplace-plus.js').replace('/crm-api.php', '/crm-api-whatsapp.php')
         files['crm-api-whatsapp.php'] = files.pop('crm-api.php')

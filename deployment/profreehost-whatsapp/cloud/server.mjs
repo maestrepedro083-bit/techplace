@@ -8,6 +8,7 @@ import QRCode from 'qrcode';
 import { openStore } from './session.mjs';
 import { openPostgres } from './session-pg.mjs';
 import { createWarrantyFile } from './warranty.mjs';
+import { createIntakeFile } from './warranty-pdf.mjs';
 
 const { TECHPLACE_TOKEN, TECHPLACE_SESSION_KEY, TECHPLACE_DATABASE_URL, TECHPLACE_DATA = '/data', PORT = '8080' } = process.env;
 const hexKey = /^[a-f0-9]{64}$/;
@@ -179,7 +180,7 @@ async function disconnect() {
 }
 
 async function submit(input) {
-  const { id, mode, connection, text, warranty } = input;
+  const { id, mode, connection, text, warranty, intake } = input;
   if (!uuid.test(id ?? '') || !phone.test(input.phone ?? '') || typeof text !== 'string' || !text.trim() || text.length > 4000) {
     throw new Error('Invalid message');
   }
@@ -194,8 +195,9 @@ async function submit(input) {
   try {
     if (!await store.reserve(id, provider, connection)) return store.receipt(id);
     let content = { text };
-    if (warranty) {
-      const file = createWarrantyFile(warranty.client, warranty.order);
+    if (warranty || intake) {
+      const file = intake ? createIntakeFile(intake.client,intake.order,intake.problem,intake.technician)
+        : createWarrantyFile(warranty.client,warranty.order);
       const document = Buffer.from(await file.arrayBuffer());
       content = { document, mimetype: 'application/pdf', fileName: file.name, caption: text };
     }

@@ -2,3 +2,7 @@
 .tp-wa-connection summary { cursor: pointer; font-weight: 600; }
 .tp-wa-connection img { display: block; max-width: 100%; height: auto; }
 .tp-wa-connection .tp-wa-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+
+#content .tp-wa-connection { max-height: none; overflow: visible; margin-top: 1rem; }
+#content .tp-wa-connection label { display: block; margin: .7rem 0; }
+#content .tp-wa-connection input:not([type=checkbox]) { display: block; width: min(100%, 32rem); }

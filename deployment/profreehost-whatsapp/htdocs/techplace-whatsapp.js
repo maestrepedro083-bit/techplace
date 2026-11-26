@@ -12,7 +12,7 @@ const connectionStates = {
   pairing_error: 'A vinculação falhou ou expirou', error: 'Conexão interrompida',
   disconnecting: 'Desconectando', busy: 'Envio em andamento', unlink_first: 'Desvincule pelo celular',
 };
-const messageNames = { status: 'Status da OS', warranty: 'Garantia', benefit: 'Benefício', discount: 'Desconto', progress: 'Progresso de fidelidade', birthday: 'Aniversário' };
+const messageNames = { status: 'Status da OS', warranty: 'Garantia', intake: 'OS em preparo · PDF', benefit: 'Benefício', discount: 'Desconto', progress: 'Progresso de fidelidade', birthday: 'Aniversário' };
 const stages = { analysis: 'Em análise', part: 'Aguardando peça', repair: 'Em manutenção' };
 
 function el(tag, text, style) {
@@ -122,7 +122,10 @@ export function whatsappConnection() {
     body.replaceChildren(state,controls,output);
     if (data.status === 'setup_required') {
       state.textContent = 'Aguardando configuração do conector';
-      output.append(el('p','Assim que o conector HTTPS estiver configurado, volte aqui para vincular o número por QR Code ou código.'));
+      if (data.admin) output.append(cloudSetup(state));
+      else output.append(el('p',data.owner_registered
+        ? 'Entre com a conta titular da TechPlace para configurar o conector.'
+        : 'A conta titular ainda precisa ser autorizada para configurar o conector.'));
       controls.append(button('Verificar conexão',refresh,state));
       return;
     }
@@ -216,7 +219,11 @@ export function whatsappOrder(root,id) {
         await render();
       },status));
     }
-    if (order.stage && order.linked) root.append(whatsappAction('Enviar status pelo WhatsApp','status',id));
+    if (order.stage && order.linked) {
+      root.append(order.preparing
+        ? whatsappAction('Em preparo · Enviar OS em PDF','intake',id)
+        : whatsappAction('Enviar status pelo WhatsApp','status',id));
+    }
   }
   void render().catch(error => { status.textContent=error.message; });
 }
@@ -298,4 +305,75 @@ export function whatsappClients(openClient) {
   block.append(el('h3','Fidelidade e aniversários'), filters, status, rows);
   void load(0);
   return block;
+}
+
+function cloudSetup(status) {
+  const form=el('div');
+  const title=el('h2','Configurar nuvem');
+  const url=el('input');
+  const token=el('input');
+  url.type='url';
+  url.placeholder='https://seu-conector';
+  token.type='password';
+  token.autocomplete='off';
+  const urlLabel=el('label','Endereço HTTPS do conector');
+  const tokenLabel=el('label','Token TECHPLACE_TOKEN');
+  urlLabel.append(url);
+  tokenLabel.append(token);
+  const generated=el('div');
+  const generate=button('Gerar chaves para a nuvem',()=>{
+    const hex=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
+    if (generated.childElementCount) return;
+    token.value=hex();
+    for (const [name,value] of [['TECHPLACE_TOKEN',token.value],['TECHPLACE_SESSION_KEY',hex()]]) {
+      const label=el('label',name);
+      const input=el('input');
+      input.value=value;
+      input.readOnly=true;
+      label.append(input);
+      generated.append(label);
+    }
+  },status);
+  const save=button('Testar e salvar conector',async()=>{
+    status.textContent='Verificando o conector…';
+    await call('configure',{url:url.value.trim(),token:token.value.trim()});
+    token.value='';
+    generated.replaceChildren();
+    location.reload();
+  },status,'btn primary');
+  form.append(title,el('p','Use estas chaves ao publicar o conector. O token também é usado abaixo. Guarde a chave da sessão apenas nas variáveis da nuvem.'),generate,generated,urlLabel,tokenLabel,save);
+  return form;
+}
+
+export function mountWhatsAppPage() {
+  const page=el('section');
+  page.append(el('h1','WhatsApp'));
+  const guide=el('details',null,'panel tp-record');
+  guide.append(el('summary','O que você precisa para configurar'));
+  const steps=el('ol');
+  for (const line of [
+    'Na nuvem, publique o conector da TechPlace como um serviço Node.js ligado continuamente. No Northflank, escolha o Sandbox e confirme que a conta permite criar recursos.',
+    'Use um banco PostgreSQL privado para manter a sessão depois de reiniciar. Na nuvem, preencha TECHPLACE_DATABASE_URL com a URL do banco, TECHPLACE_TOKEN e TECHPLACE_SESSION_KEY com as duas chaves desta página.',
+    'Copie o endereço HTTPS público do serviço para o campo desta página. Clique em Testar e salvar conector e aguarde a confirmação.',
+    'Clique em Conectar WhatsApp. Escolha Modo de teste para começar com um número pessoal e vincule pelo QR Code ou código.',
+  ]) steps.append(el('li',line));
+  const code=el('a','Abrir código e instruções de publicação','btn');
+  code.href='https://github.com/maestrepedro083-bit/techplace/tree/feature/whatsapp-techplace/deployment/profreehost-whatsapp';
+  code.target='_blank';
+  code.rel='noopener noreferrer';
+  guide.append(steps,code);
+  const state=whatsappConnection();
+  page.append(guide,state);
+  state.open=true;
+  return page;
+}
+
+export function withWhatsAppPage(modules) {
+  let page;
+  return {
+    ...modules,
+    has(key){return key==='whatsapp' || modules.has(key);},
+    mount(key){return key==='whatsapp' ? (page ||= mountWhatsAppPage()) : modules.mount(key);},
+    leave(){page=undefined;modules.leave();},
+  };
 }

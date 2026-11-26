@@ -7,26 +7,26 @@ const hex = s => bytes(s).map(x=>x.toString(16).padStart(2,'0')).join('');
 const measure=(s,size,bold=false)=>bytes(s).reduce((a,c)=>a+widths[bold?'Helvetica-Bold':'Helvetica'][c]*size/1000,0);
 function wrap(text,size,max,bold=false){let lines=[],line='';for(const word of String(text||'Não informado').split(/\s+/)){if(!word)continue;let candidate=line?line+' '+word:word;if(measure(candidate,size,bold)<=max){line=candidate;continue;}if(line)lines.push(line);line='';for(const c of word){if(line&&measure(line+c,size,bold)>max){lines.push(line);line='';}line+=c;}}if(line)lines.push(line);return lines;}
 const strDate=s=>s?String(s).slice(0,10).split('-').reverse().join('/'):'Na entrega';
-export function buildWarrantyPdf({client,order,clauses,expiry,cnpj,edition}){
+export function buildWarrantyPdf({client,order,clauses,expiry,cnpj,edition,intake=false}){
  const W=595.28,H=841.89,L=40,R=W-40,content=R-L;
  let pages=[],ops=[],y=0;const ink='0.078 0.176 0.235',muted='0.28 0.35 0.39',lineColor='0.66 0.71 0.74';
  const num=n=>Number(n).toFixed(2);
  const txt=(s,x,t,size=10,bold=false,color=ink,align='left')=>{if(align==='right')x-=measure(s,size,bold);if(align==='center')x-=measure(s,size,bold)/2;ops.push(`BT /${bold?'F2':'F1'} ${size} Tf ${color} rg 1 0 0 1 ${num(x)} ${num(H-t)} Tm <${hex(s)}> Tj ET`);};
  const line=(x1,t1,x2,t2,color=lineColor,w=.6)=>ops.push(`${color} RG ${w} w ${num(x1)} ${num(H-t1)} m ${num(x2)} ${num(H-t2)} l S`);
  const rect=(x,t,w,h,fill)=>ops.push(`${lineColor} RG .6 w ${fill?fill+' rg ':''}${num(x)} ${num(H-t-h)} ${num(w)} ${num(h)} re ${fill?'B':'S'}`);
- function header(){ops.push(`q 96 0 0 34.13 ${L} ${num(H-74)} cm /Logo Do Q`);txt('CNPJ '+cnpj,L,85,8.5,false,muted);txt('DOCUMENTO DE GARANTIA',R,52,8,false,muted,'right');txt('OS Nº '+String(order.number??'').padStart(4,'0'),R,69,15,true,ink,'right');txt('Via do cliente',R,82,8,false,muted,'right');line(L,97,R,97,ink,1.2);txt('Termo de garantia de serviço',L,125,20,true);txt('Assistência técnica  |  Registro de cobertura do reparo',L,142,9,false,muted);y=157;}
+ function header(){ops.push(`q 96 0 0 34.13 ${L} ${num(H-74)} cm /Logo Do Q`);txt('CNPJ '+cnpj,L,85,8.5,false,muted);txt(intake?'ORDEM DE SERVIÇO':'DOCUMENTO DE GARANTIA',R,52,8,false,muted,'right');txt('OS Nº '+String(order.number??'').padStart(4,'0'),R,69,15,true,ink,'right');txt('Via do cliente',R,82,8,false,muted,'right');line(L,97,R,97,ink,1.2);txt(intake?'Ordem de serviço':'Termo de garantia de serviço',L,125,20,true);txt(intake?'Registro de atendimento técnico':'Assistência técnica  |  Registro de cobertura do reparo',L,142,9,false,muted);y=157;}
  function footer(){line(L,y,R,y);txt('TECHPLACE STORE  |  CNPJ '+cnpj,L,y+12,7.5,false,muted);txt(edition,R,y+12,7.5,false,muted,'right');pages.push(ops.join('\n'));ops=[];}
  function ensure(h){if(y+h>785){footer();header();}}
  function section(title){txt(title,L,y+10,10,true,ink);line(L,y+16,R,y+16);y+=21;}
  function cell(label,value,x,t,w,ls){txt(label,x+8,t+12,8,false,muted);ls.forEach((v,i)=>txt(v,x+8,t+25+i*12,10,true));}
  header();section('IDENTIFICAÇÃO DO ATENDIMENTO');
  const half=content/2;const a=wrap(client.name,10,half-16,true),b=wrap(client.phone,10,half-16,true);let h=16+12*Math.max(a.length,b.length)+5;rect(L,y,half,h);rect(L+half,y,half,h);cell('Cliente',client.name,L,y,half,a);cell('Telefone / WhatsApp',client.phone,L+half,y,half,b);y+=h;
- const c=wrap(order.title,10,content-16,true);h=21+12*c.length;rect(L,y,content,h);cell('Serviço executado',order.title,L,y,content,c);y+=h+8;
- const dateFields=[['INÍCIO DA COBERTURA',strDate(order.warranty_start)],['PRAZO INFORMADO',(order.warranty_days||90)+' dias']];
+ const c=wrap(order.title,10,content-16,true);h=21+12*c.length;rect(L,y,content,h);cell(intake?'Serviço solicitado':'Serviço executado',order.title,L,y,content,c);y+=h+8;
+ const dateFields=intake?[['SITUAÇÃO','Em preparo'],['PREVISÃO DE ENTREGA',order.due_day?strDate(order.due_day):'A combinar']]:[['INÍCIO DA COBERTURA',strDate(order.warranty_start)],['PRAZO INFORMADO',(order.warranty_days||90)+' dias']];
  dateFields.forEach(([label,v],i)=>{const x=L+i*content/dateFields.length;rect(x,y,content/dateFields.length,38,'0.94 0.95 0.96');txt(label,x+8,y+13,7.5,false,muted);txt(v,x+8,y+28,12,true);});y+=48;
- section('CONDIÇÕES DE GARANTIA');
+ section(intake?'DADOS DO ATENDIMENTO':'CONDIÇÕES DE GARANTIA');
  for(const [i,[title,body]] of clauses.entries()){const heads=wrap(String(i+1).padStart(2,'0')+'  '+title,9.6,content,true);const ls=wrap(body,9.5,content);ensure(10+heads.length*12+ls.length*12.7);for(const v of heads){txt(v,L,y+9,9.6,true);y+=12;}for(const v of ls){txt(v,L,y+9,9.5,false,'0.07 0.07 0.07');y+=12.7;}y+=6;}
- ensure(80);y+=22;line(L,y,L+half-10,y);line(L+half+10,y,R,y);txt('Cliente / responsável pelo aparelho',L+(half-10)/2,y+13,9,false,ink,'center');txt('Responsável pela TechPlace Store',L+half+10+(half-10)/2,y+13,9,false,ink,'center');txt('A assinatura registra a entrega deste termo, sem renúncia a direitos.',W/2,y+29,8,false,muted,'center');y+=40;footer();
+ ensure(80);y+=22;line(L,y,L+half-10,y);line(L+half+10,y,R,y);txt('Cliente / responsável pelo aparelho',L+(half-10)/2,y+13,9,false,ink,'center');txt('Responsável pela TechPlace Store',L+half+10+(half-10)/2,y+13,9,false,ink,'center');txt(intake?'Guarde o número desta ordem para acompanhar o atendimento.':'A assinatura registra a entrega deste termo, sem renúncia a direitos.',W/2,y+29,8,false,muted,'center');y+=40;footer();
  const jpeg=atob(logoBase64);const objects=['','<< /Type /Catalog /Pages 2 0 R >>','','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',`<< /Type /XObject /Subtype /Image /Width 135 /Height 48 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n${jpeg}\nendstream`];
  const kids=[];for(const p of pages){const id=objects.length;kids.push(id+' 0 R');objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Logo 5 0 R >> >> /Contents ${id+1} 0 R >>`,`<< /Length ${p.length} >>\nstream\n${p}\nendstream`);}objects[2]=`<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${pages.length} >>`;
  let pdf='%PDF-1.4\n%\xE2\xE3\xCF\xD3\n',offsets=[0];for(let i=1;i<objects.length;i++){offsets.push(pdf.length);pdf+=`${i} 0 obj\n${objects[i]}\nendobj\n`;}const xref=pdf.length;pdf+=`xref\n0 ${objects.length}\n0000000000 65535 f \n`+offsets.slice(1).map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')+`trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
@@ -35,3 +35,16 @@ export function buildWarrantyPdf({client,order,clauses,expiry,cnpj,edition}){
 export function downloadWarrantyFile(file){const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
 export function canShareWarranty(file){try{return !!navigator.share&&!!navigator.canShare?.({files:[file]});}catch{return false;}}
 export async function shareWarrantyFile(file,text){if(!canShareWarranty(file))throw Error('Compartilhamento de arquivos indisponível. Baixe o PDF e anexe no WhatsApp.');await navigator.share({files:[file],text});}
+
+export function createIntakeFile(client, order, problem, technician) {
+ const number=String(order.number??'').replace(/[^0-9]/g,'').padStart(4,'0');
+ const amount=order.amount==null?'A definir':new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(order.amount)/100);
+ const clauses=[
+  ['Data de abertura',order.created_at?new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short'}).format(new Date(order.created_at)):'Não informada'],
+  ['Problema informado pelo cliente',problem||'Não informado'],
+  ['Técnico responsável',technician||'A definir'],
+  ['Valor do serviço',amount],
+ ];
+ const pdf=buildWarrantyPdf({client,order,clauses,cnpj:'48.917.899/0001-38',edition:'OS '+number,intake:true});
+ return new File([pdf],'TechPlace-OS-'+number+'.pdf',{type:'application/pdf'});
+}

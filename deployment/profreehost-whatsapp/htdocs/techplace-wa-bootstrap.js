@@ -1,5 +1,3 @@
-import { whatsappConnection } from '/techplace-whatsapp.js';
-
 const response = await fetch('/techplace-whatsapp.php', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -9,14 +7,4 @@ const response = await fetch('/techplace-whatsapp.php', {
   signal: AbortSignal.timeout(3000),
 }).then(res => res.ok ? res.json() : null).catch(() => null);
 
-if (response?.ready === true) {
-  await import('/app-whatsapp.js?v=1');
-} else {
-  await import('/app.js?v=tp45-busca-fornecedor');
-  const panel = document.getElementById('chat-panel');
-  const launcher = document.getElementById('chat-launch');
-  launcher?.addEventListener('click', () => {
-    const body = panel?.querySelector('.tp-floating-body');
-    if (body && !body.querySelector('.tp-wa-connection')) body.prepend(whatsappConnection());
-  });
-}
+await import(response?.ready === true ? '/app-whatsapp.js?v=2' : '/app-painel-wa.js?v=3');

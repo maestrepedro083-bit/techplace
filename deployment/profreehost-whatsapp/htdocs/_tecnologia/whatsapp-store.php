@@ -106,7 +106,7 @@ function waFreezeEarned(PDO $db): void {
 }
 
 function waOrder(PDO $db, string $id): array {
-    $row = unico($db, "SELECT o.id,o.number,o.title,o.status,o.updated_at,l.client_id,l.warranty_start,l.warranty_days,l.warranty_terms,
+    $row = unico($db, "SELECT o.id,o.number,o.title,o.status,o.updated_at,o.created_at,o.due_day,o.amount,o.notes,l.client_id,l.warranty_start,l.warranty_days,l.warranty_terms,
       CASE WHEN st.source_version=o.updated_at THEN st.stage END custom_stage
       FROM service_orders o LEFT JOIN tp_crm_links_v1 l ON l.kind='service' AND l.record_id=o.id
       LEFT JOIN tp_wa_stage st ON st.order_id=o.id WHERE o.deleted_at IS NULL AND o.id=?", [$id]);
@@ -166,4 +166,38 @@ function waOverview(PDO $db, array $data): array {
     $args=$filter==='met'?[$p,$s]:[$p,$s,max(1,$p-1),max(1,$s-1)];
     $rows = linhas($db,"SELECT * FROM ($sql) x WHERE $condition ORDER BY name,id LIMIT 26 OFFSET ".$offset,$args);
     return ['rows'=>array_slice($rows,0,25),'next'=>count($rows)>25?$offset+25:null];
+}
+
+function waKey(array $config): string {
+    $pepper=$config['pepper']??null;
+    if (!is_string($pepper) || strlen($pepper)<32 || !function_exists('openssl_encrypt')) {
+        throw new Entrada('Armazenamento criptografado indisponível.',503);
+    }
+    return hash_hkdf('sha256',$pepper,32,'techplace-whatsapp-config-v1');
+}
+
+function waConfig(array $config): ?array {
+    $legacy=protegido('whatsapp-config.php');
+    if (is_file($legacy)) return require $legacy;
+    $path=protegido('whatsapp-config.enc');
+    if (!is_file($path)) return null;
+    $raw=file_get_contents($path,false,null,0,4096);
+    if (!is_string($raw) || strlen($raw)<29) throw new Entrada('Configuração do conector inválida.',503);
+    $plain=openssl_decrypt(substr($raw,28),'aes-256-gcm',waKey($config),OPENSSL_RAW_DATA,substr($raw,0,12),substr($raw,12,16),'tp-wa');
+    if (!is_string($plain)) throw new Entrada('Não foi possível ler a configuração do conector.',503);
+    return json_decode($plain,true,8,JSON_THROW_ON_ERROR);
+}
+
+function waSaveConfig(array $config,array $new): void {
+    $nonce=random_bytes(12);
+    $cipher=openssl_encrypt(json_encode($new,JSON_FLAGS),'aes-256-gcm',waKey($config),OPENSSL_RAW_DATA,$nonce,$tag,'tp-wa',16);
+    if (!is_string($cipher)) throw new Entrada('Não foi possível proteger o token.',503);
+    $tmp=tempnam(__DIR__,'wa-config-');
+    if ($tmp===false) throw new Entrada('Armazenamento indisponível.',503);
+    try {
+        $raw=$nonce.$tag.$cipher;
+        if (!chmod($tmp,0600) || file_put_contents($tmp,$raw,LOCK_EX)!==strlen($raw) || !rename($tmp,protegido('whatsapp-config.enc'))) {
+            throw new Entrada('Não foi possível guardar a configuração.',503);
+        }
+    } finally { if (is_file($tmp)) unlink($tmp); }
 }
