@@ -8,7 +8,7 @@ O plano PHP da ProFreeHost hospeda a interface e a API. O conector usa Node.js 2
 
 ### Northflank Sandbox
 
-O Sandbox informa que inclui um banco e serviços de execução contínua dentro dos limites gratuitos, sem exigir cartão. Confirme que ambos os recursos estão marcados como **Sandbox** antes de criá-los.
+O Sandbox informa que inclui um banco e serviços de execução contínua dentro dos limites gratuitos. A conta TechPlace recebeu uma exigência de verificação por cartão antes de criar os recursos. Confirme que ambos os recursos estão marcados como **Sandbox** antes de criá-los.
 
 1. Crie um projeto Sandbox e um addon PostgreSQL privado com TLS. Para a conexão do serviço, use um usuário do banco dedicado que tenha acesso ao schema do conector. Não exponha o addon publicamente.
 2. Crie um serviço Docker no mesmo projeto e configure o Dockerfile em `deployment/profreehost-whatsapp/cloud/Dockerfile` com o contexto `deployment/profreehost-whatsapp/cloud`. Use uma única instância e a porta HTTP `8080` com HTTPS gerenciado pelo Northflank. Configure `GET /health` como teste de saúde.
@@ -37,3 +37,8 @@ Em caso de interrupção, consulte o histórico de mensagens. `Recebido pelo con
 ## Verificação local
 
 Execute `npm ci && npm test` dentro de `cloud`. Os testes cobrem autenticação do serviço, falha com sessão desconectada, persistência criptografada, deduplicação, confirmação e o PDF existente. Depois da publicação, teste o QR Code e o código pelo número se oferecido, desligue e reinicie uma vez o serviço para verificar a sessão, e use um único contato selecionado para confirmar o fluxo até a entrega.
+
+
+### Publicação antes de vincular o conector
+
+Use `--preparar-conexao` no script para instalar a revisão incremental sobre os arquivos existentes. Publique os arquivos auxiliares primeiro e o `index.html` por último. Até a configuração do serviço HTTPS e a ativação do armazenamento, o painel original continua operando e a seção WhatsApp do assistente exibe o estado de configuração retornado pelo servidor. Depois de ativar o armazenamento pelo painel, recarregue a página para entrar na versão com os fluxos integrados.

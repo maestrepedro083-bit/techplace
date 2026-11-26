@@ -120,6 +120,12 @@ export function whatsappConnection() {
     const controls = el('div', null, 'tp-wa-controls');
     const output = el('div');
     body.replaceChildren(state,controls,output);
+    if (data.status === 'setup_required') {
+      state.textContent = 'Aguardando configuração do conector';
+      output.append(el('p','Assim que o conector HTTPS estiver configurado, volte aqui para vincular o número por QR Code ou código.'));
+      controls.append(button('Verificar conexão',refresh,state));
+      return;
+    }
     if (data.admin) {
       if (data.status === 'disconnected') {
         const mode = choice([['test','WhatsApp pessoal · teste'],['store','WhatsApp da loja']], 'Modo do WhatsApp');

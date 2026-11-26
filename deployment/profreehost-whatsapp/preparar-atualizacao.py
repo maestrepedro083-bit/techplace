@@ -81,6 +81,8 @@ def main():
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument('current', type=Path, help='Cópia local da pasta htdocs em uso')
     cli.add_argument('output', type=Path, help='Diretório novo para receber apenas os arquivos a publicar')
+    cli.add_argument('--preparar-conexao', action='store_true',
+                     help='Publicar a aba e preservar os fluxos atuais até o conector ficar disponível')
     args = cli.parse_args()
     if not (args.current / 'warranty-pdf.js').is_file():
         cli.error('A pasta de origem precisa conter o módulo atual de garantia em PDF.')
@@ -96,6 +98,16 @@ def main():
     if args.output.exists():
         cli.error('Use um diretório novo para a atualização.')
     shutil.copytree(Path(__file__).with_name('htdocs'), args.output)
+    bootstrap = args.output / 'techplace-wa-bootstrap.js'
+    if args.preparar_conexao:
+        old_app = re.search(r'(?<=src=")/app\.js(?:\?[^"]*)?', index).group()
+        bootstrap.write_text(bootstrap.read_text(encoding='utf8').replace('/app.js?v=tp45-busca-fornecedor', old_app), encoding='utf8')
+        files['index.html'] = files['index.html'].replace('/app.js?v=tp-wa-cloud-1', '/techplace-wa-bootstrap.js?v=1')
+        files['app-whatsapp.js'] = files.pop('app.js').replace('/techplace-plus.js?v=tp-wa-cloud-1', '/techplace-plus-whatsapp.js?v=1').replace('/crm-api.php', '/crm-api-whatsapp.php')
+        files['techplace-plus-whatsapp.js'] = files.pop('techplace-plus.js').replace('/crm-api.php', '/crm-api-whatsapp.php')
+        files['crm-api-whatsapp.php'] = files.pop('crm-api.php')
+    else:
+        bootstrap.unlink()
     for name, content in files.items():
         (args.output / name).write_text(content, encoding='utf8')
 

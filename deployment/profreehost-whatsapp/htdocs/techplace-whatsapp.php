@@ -19,11 +19,21 @@ try {
     $actor=unico($db,'SELECT a.id FROM staff_sessions s JOIN staff_accounts a ON a.id=s.staff_id
         WHERE s.token_hash=? AND s.expires_at>? AND a.disabled_at IS NULL',[hash('sha256',$session),timestamp()])['id']??null;
     if (!$actor) throw new Entrada('Sessão inválida.',401);
-    if (!is_file(protegido('whatsapp-config.php'))) throw new Entrada('Integração WhatsApp ainda não configurada no servidor.',503);
+    $action=$data['action']??null;
+    if (!is_file(protegido('whatsapp-config.php'))) {
+        if ($action==='status') { resposta(['status'=>'setup_required','admin'=>false]); return; }
+        if ($action==='availability') { resposta(['ready'=>false]); return; }
+        throw new Entrada('O conector WhatsApp ainda não foi configurado na hospedagem.',503);
+    }
     $cfg=require protegido('whatsapp-config.php');
     $admin=in_array($actor,$cfg['admins']??[],true);
     if (!$admin && !in_array($actor,$cfg['senders']??[],true)) throw new Entrada('Sua conta não está autorizada a usar o WhatsApp TechPlace.',403);
-    $action=$data['action']??null;
+    if ($action==='availability') {
+        $ready=false;
+        try { waCloud($cfg,['action'=>'status']); $db->query('SELECT id FROM tp_wa_lock LIMIT 1'); $ready=true; }
+        catch (Entrada|PDOException $e) {}
+        resposta(['ready'=>$ready]); return;
+    }
     if (in_array($action,['install','connect','disconnect','forget_unlinked','stage','consent','redeem'],true) && !$admin) {
         throw new Entrada('Esta operação exige uma conta administradora autorizada.',403);
     }
